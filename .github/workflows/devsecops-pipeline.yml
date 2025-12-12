@@ -5,45 +5,63 @@ jobs:
   build-scan-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and tag image
+      - name: Build Docker image
         run: |
           IMAGE_TAG=${{ github.sha }}
           docker build -t hardened-app:${IMAGE_TAG} .
-          echo "IMAGE=image-registry.openshift-image-registry.svc:5000/$(oc project -q)/hardened-app:${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "LOCAL_IMAGE=hardened-app:${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "OPENSHIFT_IMAGE=image-registry.openshift-image-registry.svc:5000/hardened-path/hardened-app:${IMAGE_TAG}" >> $GITHUB_ENV
 
-      - name: Security Scan (Trivy) - Block High/Critical CVEs
+      - name: Security Scan (Trivy) - Fail on High/Critical
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: hardened-app:${{ github.sha }}
+          image-ref: ${{ env.LOCAL_IMAGE }}
           format: 'table'
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true  # Allows known unfixed if low risk
+          ignore-unfixed: true
 
+      # FIX: Explicitly install oc CLI first
+      - name: Install OpenShift CLI (oc)
+        uses: redhat-actions/oc-installer@v1
+        with:
+          oc_version: '4.15'  # Matches Sandbox version; use 'latest' if issues
+
+      # Now login works reliably
       - name: Login to OpenShift Sandbox
         uses: redhat-actions/oc-login@v1
         with:
-          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER_URL }}  # e.g., https://api.sandbox.x8i5.p1.openshiftapps.com:6443
-          openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}  # From oc whoami --show-token
-          insecure: true  # Sandbox uses self-signed certs
+          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER_URL }}
+          openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
+          insecure: true
 
-      - name: Create namespace and push image
+      - name: Setup namespace and push image
         run: |
-          oc new-project hardened-path --display-name="Hardened-Path Demo" || true
+          # Create/ switch to namespace
+          oc new-project hardened-path || true
           oc project hardened-path
-          docker login -u $(oc whoami) -p $(oc whoami -t) image-registry.openshift-image-registry.svc:5000
-          docker tag hardened-app:${{ github.sha }} image-registry.openshift-image-registry.svc:5000/hardened-path/hardened-app:${{ github.sha }}
-          docker push image-registry.openshift-image-registry.svc:5000/hardened-path/hardened-app:${{ github.sha }}
+          
+          # Docker login to OpenShift registry
+          echo "$(oc whoami -t)" | docker login -u "$(oc whoami)" --password-stdin image-registry.openshift-image-registry.svc:5000
+          
+          # Tag & push
+          docker tag ${{ env.LOCAL_IMAGE }} ${{ env.OPENSHIFT_IMAGE }}
+          docker push ${{ env.OPENSHIFT_IMAGE }}
+          
+          # Tag ImageStream for deployment
+          oc tag ${{ env.OPENSHIFT_IMAGE }} hardened-path/hardened-app:latest
 
-      - name: Deploy manifests
+      - name: Deploy secure manifests
         run: |
-          oc apply -f k8s/quota.yaml
-          oc apply -f k8s/network-policy.yaml
-          oc apply -f k8s/service.yaml
-          oc apply -f k8s/deployment.yaml
-          oc apply -f k8s/route.yaml
+          oc apply -f k8s/ -R  # -R recurses directory
+
+      - name: Verify deployment
+        run: |
+          oc rollout status deployment/hardened-app --timeout=300s
+          oc get route hardened-app-route -o jsonpath='{.spec.host}'  # Outputs public URL
