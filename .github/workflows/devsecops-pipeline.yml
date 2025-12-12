@@ -1,0 +1,29 @@
+name: DevSecOps-Pipeline
+on: [push]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Security Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'my-app:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' # Fails build if High/Critical CVEs found
+          severity: 'CRITICAL,HIGH'
+
+      - name: OpenShift Login
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
+          openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
+          insecure_skip_tls_verify: true
+
+      - name: Deploy to Sandbox
+        run: |
+          oc apply -f k8s/quota.yaml
+          oc apply -f k8s/network-policy.yaml
+          oc apply -f k8s/deployment.yaml
