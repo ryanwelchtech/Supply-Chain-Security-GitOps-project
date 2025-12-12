@@ -39,7 +39,7 @@ jobs:
         with:
           openshift_server_url: ${{ secrets.OPENSHIFT_SERVER_URL }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
-          # insecure: true
+          
       - name: Setup namespace and push image
         run: |
           # Create or switch to namespace
