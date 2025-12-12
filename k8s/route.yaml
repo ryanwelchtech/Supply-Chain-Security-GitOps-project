@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hardened-app-route
+  namespace: hardened-path
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+spec:
+  to:
+    kind: Service
+    name: hardened-app-service
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge  # Encrypts external traffic (SC-8)
+  wildcardPolicy: None
