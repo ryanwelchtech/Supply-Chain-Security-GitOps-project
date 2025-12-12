@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: hardened-path-quota
-  namespace: hardened-path
+  name: hardened-path-quota  # Unique name
+  namespace: rywel-dev  # ✅ NS
 spec:
   hard:
     requests.cpu: "1"
@@ -10,4 +10,3 @@ spec:
     limits.cpu: "2"
     limits.memory: "2Gi"
     pods: "10"
-    services: "5"

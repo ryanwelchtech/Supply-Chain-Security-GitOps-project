@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hardened-app
-  namespace: hardened-path
+  namespace: rywel-dev  # ✅ YOUR NS
   labels:
     app: hardened-app
 spec:
@@ -15,7 +15,6 @@ spec:
       labels:
         app: hardened-app
     spec:
-      # Security Context: Non-root, no privilege escalation (OpenShift SCC)
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -24,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: hardened-app
-        image: image-registry.openshift-image-registry.svc:5000/hardened-path/hardened-app:latest  # Updated by pipeline
+        image: image-registry.openshift-image-registry.svc:5000/rywel-dev/hardened-app:latest  # ✅ NS prefixed
         ports:
         - containerPort: 8080
         resources:
@@ -34,15 +33,12 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
-        # Probes mirror DHS HART reliability work
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8080
           initialDelaySeconds: 30
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /readyz
@@ -65,4 +61,4 @@ apiVersion: v1
 kind: ImageStream
 metadata:
   name: hardened-app
-  namespace: hardened-path
+  namespace: rywel-dev  # ✅ NS

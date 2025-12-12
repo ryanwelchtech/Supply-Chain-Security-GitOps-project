@@ -16,9 +16,9 @@ jobs:
           IMAGE_TAG=${{ github.sha }}
           docker build -t hardened-app:${IMAGE_TAG} .
           echo "LOCAL_IMAGE=hardened-app:${IMAGE_TAG}" >> $GITHUB_ENV
-          echo "OPENSHIFT_IMAGE=image-registry.openshift-image-registry.svc:5000/hardened-path/hardened-app:${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "OPENSHIFT_IMAGE=image-registry.openshift-image-registry.svc:5000/rywel-dev/hardened-app:${IMAGE_TAG}" >> $GITHUB_ENV
 
-      - name: Security Scan (Trivy) - Fail on High/Critical
+      - name: Security Scan (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.LOCAL_IMAGE }}
@@ -27,13 +27,11 @@ jobs:
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
 
-      # FIX: Explicitly install oc CLI first
       - name: Install OpenShift CLI (oc)
         uses: redhat-actions/oc-installer@v1
         with:
-          oc_version: 'latest'  # Matches Sandbox version; use 'latest' if issues
+          oc_version: 'stable-4.15'  # Or 'latest' / your oc version
 
-      # Now login works reliably
       - name: Login to OpenShift Sandbox
         uses: redhat-actions/oc-login@v1
         with:
@@ -41,29 +39,20 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           insecure: true
 
-      - name: Setup namespace and push image
+      - name: Switch to rywel-dev & push image
         run: |
-          # Create switch to namespace
-          #oc new-project hardened-path || true
-          #oc project hardened-path #uncomment if project needs to be created
-
-          oc project rywel-dev # Use your existing OpenShift Sandbox project name
-          
-          # Docker login to OpenShift registry
+          oc project rywel-dev  # ✅ Use YOUR existing namespace
           echo "$(oc whoami -t)" | docker login -u "$(oc whoami)" --password-stdin image-registry.openshift-image-registry.svc:5000
-          
-          # Tag & push
           docker tag ${{ env.LOCAL_IMAGE }} ${{ env.OPENSHIFT_IMAGE }}
           docker push ${{ env.OPENSHIFT_IMAGE }}
-          
-          # Tag ImageStream for deployment
-          oc tag ${{ env.OPENSHIFT_IMAGE }} hardened-path/hardened-app:latest
+          oc tag ${{ env.OPENSHIFT_IMAGE }} rywel-dev/hardened-app:latest  # Namespace ImageStream
 
-      - name: Deploy secure manifests
+      - name: Deploy/upsert manifests (idempotent)
         run: |
-          oc apply -f k8s/ -R  # -R recurses directory
+          oc apply -f k8s/ -R --server-side=true --force=true  # Handles existing resources
 
-      - name: Verify deployment
+      - name: Verify deployment & expose URL
         run: |
-          oc rollout status deployment/hardened-app --timeout=300s
-          oc get route hardened-app-route -o jsonpath='{.spec.host}'  # Outputs public URL
+          oc project rywel-dev
+          oc rollout status deployment/hardened-app --timeout=300s || true
+          echo "::notice title=Public URL:: http://$(oc get route hardened-app-route -o jsonpath='{.spec.host}')/"

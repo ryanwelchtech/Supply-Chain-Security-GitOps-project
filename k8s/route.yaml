@@ -2,7 +2,7 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: hardened-app-route
-  namespace: hardened-path
+  namespace: rywel-dev  # ✅ NS
   annotations:
     haproxy.router.openshift.io/timeout: 60s
 spec:
@@ -12,5 +12,5 @@ spec:
   port:
     targetPort: 8080
   tls:
-    termination: edge  # Encrypts external traffic (SC-8)
+    termination: edge
   wildcardPolicy: None
