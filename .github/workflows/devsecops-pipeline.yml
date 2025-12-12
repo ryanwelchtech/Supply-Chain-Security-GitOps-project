@@ -40,10 +40,9 @@ jobs:
           openshift_server_url: ${{ secrets.OPENSHIFT_SERVER_URL }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           insecure: true
-
       - name: Setup namespace and push image
         run: |
-          # Create/ switch to namespace
+          # Create or switch to namespace
         #oc new-project hardened-path || true
         #oc project hardened-path uncomment/* if project needs to be created
 
