@@ -44,8 +44,10 @@ jobs:
       - name: Setup namespace and push image
         run: |
           # Create/ switch to namespace
-          oc new-project hardened-path || true
-          oc project hardened-path
+        #   */oc new-project hardened-path || true
+        #   oc project hardened-path uncomment/* if project needs to be created
+
+          oc project rywel-dev # Use your existing OpenShift Sandbox project name
           
           # Docker login to OpenShift registry
           echo "$(oc whoami -t)" | docker login -u "$(oc whoami)" --password-stdin image-registry.openshift-image-registry.svc:5000
