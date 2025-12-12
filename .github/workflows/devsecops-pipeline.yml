@@ -30,7 +30,7 @@ jobs:
       - name: Install OpenShift CLI (oc)
         uses: redhat-actions/oc-installer@v1
         with:
-          oc_version: 'stable-4.15'  # Or 'latest' / your oc version
+          oc_version: 'latest'  # Or 'latest' / your oc version
 
       - name: Login to OpenShift Sandbox
         uses: redhat-actions/oc-login@v1
