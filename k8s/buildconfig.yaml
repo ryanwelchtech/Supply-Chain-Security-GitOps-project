@@ -1,0 +1,20 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: hardened-app-bc
+  namespace: rywel-dev
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/ryanwelchtech/Supply-Chain-Security-GitOps-project  # Your repo URL
+  strategy:
+    type: Dockerfile
+    dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: hardened-app:latest
+  triggers:
+  - type: ConfigChange
+  - type: Git  # Auto-trigger on Git push
